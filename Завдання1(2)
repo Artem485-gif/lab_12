@@ -1,0 +1,42 @@
+from bs4 import BeautifulSoup
+
+try:
+    print("Парсинг HTML-даних")
+
+    html_content = """
+    <html>
+        <body>
+            <div class="article-card">
+                <h2>Програмування під платформу. Net Framework</h2>
+                <span class="category">Програмування</span>
+            </div>
+            <div class="article-card">
+                <h2>Математичні методи дослідження операцій</h2>
+                <span class="category">Оптимізація</span>
+            </div>
+            <div class="article-card">
+                <h2>Технології комп’ютерного моделювання</h2>
+                <span class="category">Комп’ютерне моделювання</span>
+            </div>
+        </body>
+    </html>
+    """
+
+    # Створюємо об'єкт BeautifulSoup
+    soup = BeautifulSoup(html_content, "html.parser")
+
+    print("HTML-дані успішно зчитано!")
+    print("-" * 40)
+
+    # Знаходимо всі статті на сторінці
+    articles = soup.find_all("div", class_="article-card")
+    print(f"Знайдено {len(articles)} статей:")
+
+    # Виводимо заголовки та категорії статей
+    for idx, article in enumerate(articles, 1):
+        title = article.find("h2").text.strip()
+        category = article.find("span", class_="category").text.strip()
+        print(f"{idx}. {title} (Категорія: {category})")
+
+except Exception as e:
+    print(f"Помилка: {e}")
