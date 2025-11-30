@@ -1,0 +1,19 @@
+import pandas as pd
+
+print("Завантаження HTML-даних")
+
+url = "https://abiznes.com.ua/top-10-naybahatshykh-krain-svitu-za-rivnem-vvp-u-2024-rotsi-3871/"
+
+try:
+    # Зчитуємо всі таблиці зі сторінки
+    tables = pd.read_html(url)
+
+    print(f"Знайдено таблиць: {len(tables)}\n")
+
+    # Беремо першу таблицю
+    df = tables[0]
+
+    print(df.to_string(index=False))
+
+except Exception as e:
+    print("Помилка:", e)
