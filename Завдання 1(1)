@@ -1,0 +1,10 @@
+import requests
+
+# Базовий GET запит
+data = requests.get('https://www.python.org/')
+
+# Різні способи доступу до даних
+print("Статус код:", data.status_code)
+print("Заголовки:", data.headers['content-type'])
+print("Розмір вмісту:", len(data.content), "байт")
+print("Текстовий вміст:", data.text[:100] + "...")
