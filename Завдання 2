@@ -1,0 +1,190 @@
+import requests
+from bs4 import BeautifulSoup
+
+DB_FILE = "result_lab12.txt" # Файл, куди будуть зберігатися результати
+
+def get_user_input():
+    print("___Збір та обробка HTML-даних___")
+    # Перевірка правильності введеного URL
+    while True:
+        url = input("Введіть URL веб-сторінки: ").strip()
+        if url.startswith("http://") or url.startswith("https://"):
+            break
+        else:
+            print("Помилка: невірний формат URL!!!")
+    # Вибір даних, які потрібно зібрати
+    print("\nОберіть типи даних для збору:")
+    print("1 - Заголовки")
+    print("2 - Параграфи тексту")
+    print("3 - Посилання")
+    print("4 - Таблиці")
+
+    while True:
+        choices = input("Введіть номери через кому (Наприклад: 1,2,3): ").strip()
+        data_types = [c.strip() for c in choices.split(",") if c.strip() in ['1','2','3','4']]
+        if data_types or choices == "":
+            break
+        print("Помилка: оберіть принаймні один тип даних")
+
+    # Якщо користувач не вибрав нічого — збираємо все
+    if not data_types:
+        data_types = ['1','2','3','4']
+        print("Вибрано всі типи даних")
+
+    return url, data_types
+
+def fetch_webpage(url):
+    try:
+        print(f"Завантаження сторінки: {url}")
+        # Заголовок User-Agent, щоб сайт не думав, що це бот
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        print("*Сторінка успішно завантажена")
+        return response.text
+    except requests.exceptions.RequestException as e:
+        print(f"Помилка при завантаженні сторінки: {e}")
+        return None
+
+def parse_html(html, data_types, base_url):
+    if not html:
+        return []
+
+    soup = BeautifulSoup(html, "html.parser") # Парсимо HTML
+    data = []
+
+    # Збір заголовків h1–h6
+    if '1' in data_types:
+        for h in soup.find_all(["h1","h2","h3","h4","h5","h6"]):
+            text = h.get_text(strip=True)
+            if text:
+                data.append({"type":"заголовки","tag":h.name,"content":text,"url":base_url})
+
+    # Збір параграфів тексту
+    if '2' in data_types:
+        for p in soup.find_all("p"):
+            text = p.get_text(strip=True)
+            if len(text) > 10:
+                data.append({"type":"параграф","tag":"p","content":text,"url":base_url})
+
+    # Збір посилань
+    if '3' in data_types:
+        for a in soup.find_all("a", href=True):
+            text = a.get_text(strip=True)
+            if text:
+                data.append({"type":"посилання","tag":"a","content":text,"href":a['href'],"url":base_url})
+    # Таблиць
+    if '4' in data_types:
+        for table in soup.find_all("table"):
+            rows = []
+            for tr in table.find_all("tr"):
+                cells = [td.get_text(strip=True) for td in tr.find_all(["td","th"])]
+                if cells:
+                    rows.append(" | ".join(cells))
+            if rows:
+                data.append({"type":"таблиця","tag":"table","content":"; ".join(rows),"url":base_url})
+
+    print(f"*Зібрано {len(data)} елементів")
+    return data
+
+def save_to_txt(data, filename=DB_FILE):
+    if not data:
+        print("Немає даних для збереження.")
+        return
+
+    try:
+        with open(filename, "a", encoding="utf-8") as f:
+            f.write("\n-------------------------------\n")
+            # Запис кожного елемента у файл
+            for i, item in enumerate(data,1):
+                f.write(f"ЕЛЕМЕНТ #{i}\n")
+                f.write(f"Тип: {item.get('type','Невідомо')}\n")
+                f.write(f"HTML тег: {item.get('tag','Невідомо')}\n")
+                f.write(f"Вміст: {item.get('content','Немає вмісту')}\n")
+                f.write(f"URL сторінки: {item.get('url','Невідомо')}\n")
+                if 'href' in item:
+                    f.write(f"Посилання: {item['href']}\n")
+                if 'src' in item:
+                    f.write(f"Джерело зображення: {item['src']}\n")
+                f.write("-"*50+"\n")
+        print(f"Дані збережено у файл '{filename}'")
+    except IOError:
+        print("Помилка запису файлу.")
+
+def show_statistics(data):
+    if not data:
+        print("Немає даних для статистики.")
+        return
+    type_counts = {}
+    for item in data:
+        type_counts[item['type']] = type_counts.get(item['type'],0)+1
+    print("\nСтатистика зібраних даних:")
+    for t,c in type_counts.items():
+        print(f"  {t:12}: {c} елементів ({c/len(data)*100:.1f}%)")
+
+def additional_operations(data):
+    while True:
+        print("\nДодаткові операції з HTML-даними")
+        print("1 - Пошук елементів за ключовим словом")
+        print("2 - Показати всі посилання на сторінці")
+        print("3 - Показати статистику по типах елементів")
+        print("4 - Показати всі заголовки")
+        print("5 - Вийти з додаткових операцій")
+
+        choice = input("Оберіть опцію (1-5): ").strip()
+
+        if choice == "1":
+            keyword = input("Введіть ключове слово: ").strip().lower()
+            filtered_result = [item for item in data if keyword in item['content'].lower()]
+            print(f"Знайдено {len(filtered_result)} елементів з ключовим словом '{keyword}'")
+            save_to_txt(filtered_result)
+
+        elif choice == "2":
+            links = [item for item in data if item['type'] == "посилання"]
+            if links:
+                print(f"Знайдено {len(links)} посилань:")
+                for i, link in enumerate(links, 1):
+                    print(f"{i}. {link['content']} -> {link['href']}")
+            else:
+                print("Посилань не знайдено.")
+
+        elif choice == "3":
+            show_statistics(data)
+
+        elif choice == "4":
+            headers = [item for item in data if item['type'] == "заголовки"]
+            if headers:
+                print(f"Знайдено {len(headers)} заголовків:")
+                for i, h in enumerate(headers, 1):
+                    print(f"{i}. [{h['tag']}] {h['content']}")
+            else:
+                print("Заголовків не знайдено.")
+
+        elif choice == "5":
+            print("Вихід з додаткових операцій.")
+            break
+
+        else:
+            print("Невірна операція!!!. Спробуйте ще раз.")
+
+def main():
+    url, data_types = get_user_input()
+    #Завантажуємо HTML
+    html = fetch_webpage(url)
+    if not html:
+        return
+
+    # Парсимо HTML і збираємо потрібні елементи
+    data = parse_html(html, data_types, url)
+    if not data:
+        print("Не знайдено даних за обраними критеріями.")
+        return
+
+    show_statistics(data) # Виводимо статистику
+    save_to_txt(data) # Зберігаєм дані в текстовий фаайл
+    additional_operations(data)
+
+    print("\nРоботу програми завершено. Дані збережено у TXT-файл.")
+
+if __name__ == "__main__":
+    main()
